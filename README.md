@@ -2,6 +2,33 @@
 
 > **Tech Challenge — Fase 4 (`[IAST]`)**: Plataforma conversacional de Inteligência de Voz do Cliente (VoC) sobre **98.410 pedidos e avaliações únicas do e-commerce brasileiro Olist** (`2016-09` a `2018-10`), projetada com arquitetura híbrida de **Apache Parquet** + **ChromaDB** + **BM25Okapi** + **RRF + MMR** + **LangGraph** + **FastAPI** + **Interface** (execução local ou containerizada via Docker).
 
+## Índice de Navegação
+
+- [1. Contexto](#1-contexto)
+- [2. Objetivo Analítico](#2-objetivo-analítico)
+- [3. Descrição da base utilizada](#3-descrição-da-base-utilizada)
+  - [3.1 Tabelas Relacionais Utilizadas vs. Omitidas](#31-tabelas-relacionais-utilizadas-vs-omitidas)
+  - [3.2 Perfil Global do Corpus (`GET /api/v1/metadata/filters`)](#32-perfil-global-do-corpus-get-apiv1metadatafilters)
+- [4. Estrutura de pasta do repositório](#4-estrutura-de-pasta-do-repositório)
+- [5. Etapas e RAG](#5-etapas-e-rag)
+  - [5.1 Arquitetura Ponta a Ponta](#51-arquitetura-ponta-a-ponta)
+  - [5.2 Etapa 1 — Ingestão Offline e Limpeza LGPD](#52-etapa-1--ingestão-offline-e-limpeza-lgpd)
+  - [5.3 Etapa 2 — Orquestração LangGraph (8 Nós) e Fluxo de Consulta](#53-etapa-2--orquestração-langgraph-8-nós-e-fluxo-de-consulta)
+  - [5.4 Metadados Bônus, Guardrails LGPD e Desacoplamento API](#54-metadados-bônus-guardrails-lgpd-e-desacoplamento-api)
+  - [5.5 Justificativa das Tecnologias Utilizadas (Fase 4 & Tech Challenge)](#55-justificativa-das-tecnologias-utilizadas-fase-4--tech-challenge)
+- [6. Métricas](#6-métricas)
+  - [6.1 Métricas de Auditoria da Ingestão (`data/processed/ingestion_report.json`)](#61-métricas-de-auditoria-da-ingestão-dataprocessedingestion_reportjson)
+  - [6.2 Ablação de Recuperação Híbrida (`python -m tests.eval_suite`)](#62-ablação-de-recuperação-híbrida-python--m-testseval_suite)
+- [7. Resultados do processamento (breve)](#7-resultados-do-processamento-breve)
+- [8. Insights](#8-insights)
+- [9. Instruções de execução via docker](#9-instruções-de-execução-via-docker)
+  - [Passo 1 — Configurar variáveis de ambiente (`.env`)](#passo-1--configurar-variáveis-de-ambiente-env)
+  - [Passo 2 — Baixar os CSVs e executar a ingestão *(pule se `data/processed/` já existir)*](#passo-2--baixar-os-csvs-e-executar-a-ingestão-pule-se-dataprocessed-já-existir)
+  - [Passo 3 — Subir a API (`8000`) e o Dashboard Interface (`8501`)](#passo-3--subir-a-api-8000-e-o-dashboard-interface-8501)
+  - [Passo 4 — Validar endpoints e persistência local em `./results`](#passo-4--validar-endpoints-e-persistência-local-em-results)
+- [10. Vídeo Executivo](#10-vídeo-executivo)
+- [11. Links úteis](#11-links-úteis)
+
 ---
 
 ## 1. Contexto
@@ -57,9 +84,7 @@ tech-challenge-4/
 ├── data/
 │   ├── raw/                        # Arquivos CSV da Olist no Kaggle (ignorados no git)
 │   └── processed/                  # Parquets, ChromaDB, pickle BM25, relatórios, sessões (ignorados no git)
-├── docs/                           # Documentação complementar, apresentação e roteiro de fala
 ├── results/                        # Visão final consolidada (rag_final_overview.json/.md) e saved_queries.jsonl
-├── openspec/changes/olist-voc-rag/ # Proposta OpenSpec, design, delta specs e tarefas
 ├── src/
 │   ├── config.py                   # Pydantic BaseSettings e caminhos/limiares centralizados
 │   ├── api/
@@ -96,6 +121,7 @@ tech-challenge-4/
 ├── Dockerfile                      # Imagem Python 3.12-slim + PyTorch CPU para API, UI e ingestão
 ├── docker-compose.yml              # Orquestração API + UI + perfil ingest com bind mounts locais
 ├── pyproject.toml                  # Dependências e configuração Ruff/Pytest (Python >= 3.12)
+├── requirements.txt                # Lista de dependências Python para instalação local sem Docker
 └── README.md
 ```
 
@@ -364,7 +390,7 @@ docker compose down
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
+pip install -r requirements.txt    # ou: pip install -e ".[dev]"
 python -m src.ingestion.pipeline --raw-dir data/raw --rebuild
 uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 # Em outro terminal:
